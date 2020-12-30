@@ -1,6 +1,7 @@
 import Component from '../React/component';
+import { diff, diffNode } from './diff';
 
-const creatComponent = (comp, props) => {
+export const createComponent = (comp, props) => {
   let inst;
   //  判断是类组件还是函数组件
   if (comp.prototype && comp.prototype.render) {
@@ -10,28 +11,55 @@ const creatComponent = (comp, props) => {
     //如果是函数,将函数组件扩展成类组件,方便后面统一处理
     inst = new Component(props);
 
-    inst.construct = comp; //将构造的对象construction的属性指向传进来的函数
-    inst.render = () => inst.construct(props);
+    inst.constructor = comp; //将构造的对象construction的属性指向传进来的函数
+    inst.render = () => inst.constructor(props);
   }
   return inst;
 };
-const setComponentProps = (comp, props) => {
+export const setComponentProps = (comp, props) => {
   //设置属性
   comp.props = props;
+  if (!comp.base) {
+    comp.componentWillMount && comp.componentWillMount();
+  } else if (comp.componentWillReceiveProps) {
+    comp.componentWillReceiveProps();
+  }
   //渲染节点
   renderComponent(comp);
 };
-const renderComponent = (comp) => {
+export const unmountComponent = (dom) => {
+  console.log('移除组件');
+  dom && dom.parentNode && dom.parentNode.removeNode(dom);
+};
+export const renderComponent = (comp) => {
   let base;
-  const rendered = comp.render();//返回jsx对象
-  base = _render(rendered);//返回节点对象
-  console.log('base',base)
+  const renderer = comp.render(); //返回jsx对象
+  // base = _render(rendered); //返回节点对象
+  base = diffNode(comp.base, renderer);
+  if (comp.base) {
+    comp.componentWillUpdate && comp.componentWillUpdate();
+    comp.componentDidUpdate && comp.componentDidUpdate();
+  } else if (comp.componentDidMount) {
+    comp.componentDidMount();
+  }
+  // // 如果调用了setState,节点替换
+  // if (comp.base && comp.base.parentNode) {
+  //   comp.base.parentNode.replaceChild(base, comp.base);
+  // }
   comp.base = base;
 };
 const _render = (vNode) => {
   // 判断节点类型
-  if (!vNode || typeof vNode === 'boolean') {
+  if (
+    vNode === undefined ||
+    vNode === null ||
+    vNode === '' ||
+    typeof vNode === 'boolean'
+  ) {
     return;
+  }
+  if (typeof vNode === 'number') {
+    vNode = String(vNode);
   }
   if (typeof vNode === 'string') {
     // 字符串类型
@@ -44,8 +72,7 @@ const _render = (vNode) => {
     if (typeof tag === 'function') {
       //如果tag是函数
       // 1.创建组件
-      const comp = creatComponent(tag, attr);
-      console.log('comp', comp);
+      const comp = createComponent(tag, attr);
       // 2.设置组件的属性
       setComponentProps(comp, attr);
       // 3.组件渲染的节点对象返回
@@ -67,10 +94,11 @@ const _render = (vNode) => {
     return dom;
   }
 };
-const render = (node, container) => {
-  return container.appendChild(_render(node));
+const render = (node, container, dom) => {
+  // return container.appendChild && container.appendChild(_render(node));
+  return diff(dom, node, container);
 };
-const setAttributeFunc = (dom, key, value) => {
+export const setAttributeFunc = (dom, key, value) => {
   // 判断key的类型
   // 如果key是类名直接转换成class
   if (key === 'className') {
@@ -79,7 +107,7 @@ const setAttributeFunc = (dom, key, value) => {
   // 1是事件 如onClick,onBlur...
   if (/on\w+/.test(key)) {
     key = key.toLowerCase();
-    dom[key] = value[key] || '';
+    dom[key] = value || '';
   } else if (key === 'style') {
     // 2是样式 style
     if (!value || typeof value === 'string') {

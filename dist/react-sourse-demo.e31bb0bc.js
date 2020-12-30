@@ -117,66 +117,235 @@ parcelRequire = (function (modules, cache, entry, globalName) {
   }
 
   return newRequire;
-})({"React/index.js":[function(require,module,exports) {
+})({"React-dom/diff.js":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.default = void 0;
+exports.diffNode = exports.diff = void 0;
 
-var createElement = function createElement(tag, attr) {
-  for (var _len = arguments.length, children = new Array(_len > 2 ? _len - 2 : 0), _key = 2; _key < _len; _key++) {
-    children[_key - 2] = arguments[_key];
+var _index = require("./index");
+
+function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _unsupportedIterableToArray(arr) || _nonIterableSpread(); }
+
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+
+function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
+
+function _iterableToArray(iter) { if (typeof Symbol !== "undefined" && Symbol.iterator in Object(iter)) return Array.from(iter); }
+
+function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) return _arrayLikeToArray(arr); }
+
+function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+
+var diff = function diff(dom, vNode, container) {
+  var ret = diffNode(dom, vNode); //比较节点
+
+  container && container.appendChild(ret);
+  return ret;
+};
+
+exports.diff = diff;
+
+var diffNode = function diffNode(dom, vNode) {
+  var out = dom; //判断节点类型
+  // 判断节点类型
+
+  if (vNode === undefined || vNode === null || vNode === '' || typeof vNode === 'boolean') {
+    return;
   }
 
-  return {
-    tag: tag,
-    attr: attr,
-    children: children
-  };
+  if (typeof vNode === 'number') {
+    vNode = String(vNode);
+  } //字符串
+
+
+  if (typeof vNode === 'string') {
+    //如果当前节点是文本节点,直接更新内容
+    if (dom && dom.nodeType === 3) {
+      dom.textContent !== vNode && (dom.textContent = vNode);
+    } else {
+      //如果dom不是文本节点,则创建一个文本点dom,并移除原来的dom
+      out = document.createTextNode(vNode);
+
+      if (dom && dom.parentNode) {
+        dom.parentNode.replaceNode(out, dom);
+      }
+    }
+
+    return out;
+  } //如果是一个组件
+
+
+  if (typeof vNode.tag === 'function') {
+    return diffComponent(dom, vNode);
+  } // 如果是非文本DOM节点
+  // 真实DOM不存在
+
+
+  if (!dom) {
+    out = document.createElement(vNode.tag);
+  } // 如果真实DOM存在,需要对比属性和对比子节点
+
+
+  diffAttributes(out, vNode);
+
+  if (vNode.children && vNode.children.length > 0 || out.childNodes && out.childNodes.length > 0) {
+    diffChildren(out, vNode.children);
+  }
+
+  return out;
 };
 
-var React = {
-  createElement: createElement
+exports.diffNode = diffNode;
+
+var diffComponent = function diffComponent(dom, vNode) {
+  var comp = dom; //如果组件没变化,则重新设置props
+
+  if (comp && comp.constructor === vNode.tag) {
+    //重新设置props
+    (0, _index.setComponentProps)(comp, vNode.attr); //赋值
+
+    dom = comp.base;
+  } else {
+    // 如果组件类型变化,则移除掉原来组件,并渲染新组件
+    // 移除
+    if (comp) {
+      unmountComponent(comp);
+      comp = null;
+    } //核心代码
+    // 1.创建新组件
+
+
+    comp = (0, _index.createComponent)(vNode.tag, vNode.attr); // 2.设置组件属性
+
+    (0, _index.setComponentProps)(comp, vNode.attr); // 挂载当前新的组件
+
+    dom = comp.base;
+  }
+
+  return dom;
 };
-var _default = React;
-exports.default = _default;
-},{}],"React/component.js":[function(require,module,exports) {
+
+var diffAttributes = function diffAttributes(dom, vNode) {
+  // 保存之前的真实DOM的所有属性
+  var oldAttrs = {};
+  var newAttrs = vNode.attr; //虚拟DOM的属性 (也是最新的属性)
+  // 获取真实DOM属性
+
+  var domAttrs = dom.attributes; // const domAttrs =  document.querySelector('#root').attributes;
+
+  _toConsumableArray(domAttrs).forEach(function (item) {
+    oldAttrs[item.name] = item.value;
+  }); // 比较
+  // 如果原来的属性不在新的属性当中,则将其移除掉  (属性值直接设置undefined)
+
+
+  for (var key in oldAttrs) {
+    if (!(key in newAttrs)) {
+      // 移除
+      (0, _index.setAttributeFunc)(dom, key, undefined);
+    }
+  } // 更新新的属性值
+
+
+  for (var _key in newAttrs) {
+    if (oldAttrs[_key] !== newAttrs[_key]) {
+      console.log(dom, newAttrs[_key], _key); // 只更值不相等的属性
+
+      (0, _index.setAttributeFunc)(dom, _key, newAttrs[_key]);
+    }
+  }
+};
+
+var diffChildren = function diffChildren(dom, vChildren) {
+  var domChildren = dom.childNodes;
+  var children = [];
+  var keyed = {}; // 将有key的节点(用对象保存)和没有key的节点(用数组保存)分开
+
+  if (domChildren.length > 0) {
+    _toConsumableArray(domChildren).forEach(function (item) {
+      // 获取key
+      var key = item.key;
+
+      if (key) {
+        // 如果key存在,保存到对象中
+        keyed[key] = item;
+      } else {
+        // 如果key不存在,保存到数组中
+        children.push(item);
+      }
+    });
+  }
+
+  if (vChildren && vChildren.length > 0) {
+    var min = 0;
+    var childrenLen = children.length; //2
+
+    _toConsumableArray(vChildren).forEach(function (vChild, i) {
+      // 获取虚拟DOM中所有的key
+      var key = vChild.key;
+      var child;
+
+      if (key) {
+        // 如果有key,找到对应key值的节点
+        if (keyed[key]) {
+          child = keyed[key];
+          keyed[key] = undefined;
+        }
+      } else if (childrenLen > min) {
+        // alert(1);
+        // 如果没有key,则优先找类型相同的节点
+        for (var j = min; j < childrenLen; j++) {
+          var c = children[j];
+
+          if (c) {
+            child = c;
+            children[j] = undefined;
+            if (j === childrenLen - 1) childrenLen--;
+            if (j === min) min++;
+            break;
+          }
+        }
+      } // 对比
+
+
+      child = diffNode(child, vChild); // 更新DOM
+
+      var f = domChildren[i];
+
+      if (child && child !== dom && child !== f) {
+        // 如果更新前的对应位置为空，说明此节点是新增的
+        if (!f) {
+          dom.appendChild(child); // 如果更新后的节点和更新前对应位置的下一个节点一样，说明当前位置的节点被移除了
+        } else if (child === f.nextSibling) {
+          removeNode(f); // 将更新后的节点移动到正确的位置
+        } else {
+          // 注意insertBefore的用法，第一个参数是要插入的节点，第二个参数是已存在的节点
+          dom.insertBefore(child, f);
+        }
+      }
+    });
+  }
+};
+},{"./index":"React-dom/index.js"}],"React-dom/index.js":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.default = void 0;
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-var Component = function Component() {
-  var props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-
-  _classCallCheck(this, Component);
-
-  this.props = props;
-  this.state = {};
-};
-
-exports.default = Component;
-},{}],"React-dom/index.js":[function(require,module,exports) {
-"use strict";
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.default = void 0;
+exports.default = exports.setAttributeFunc = exports.renderComponent = exports.unmountComponent = exports.setComponentProps = exports.createComponent = void 0;
 
 var _component = _interopRequireDefault(require("../React/component"));
+
+var _diff = require("./diff");
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
 
-var creatComponent = function creatComponent(comp, props) {
+var createComponent = function createComponent(comp, props) {
   var inst; //  判断是类组件还是函数组件
 
   if (comp.prototype && comp.prototype.render) {
@@ -185,37 +354,72 @@ var creatComponent = function creatComponent(comp, props) {
   } else {
     //如果是函数,将函数组件扩展成类组件,方便后面统一处理
     inst = new _component.default(props);
-    inst.construct = comp; //将构造的对象construction的属性指向传进来的函数
+    inst.constructor = comp; //将构造的对象construction的属性指向传进来的函数
 
     inst.render = function () {
-      return inst.construct(props);
+      return inst.constructor(props);
     };
   }
 
   return inst;
 };
 
+exports.createComponent = createComponent;
+
 var setComponentProps = function setComponentProps(comp, props) {
   //设置属性
-  comp.props = props; //渲染节点
+  comp.props = props;
+
+  if (!comp.base) {
+    comp.componentWillMount && comp.componentWillMount();
+  } else if (comp.componentWillReceiveProps) {
+    comp.componentWillReceiveProps();
+  } //渲染节点
+
 
   renderComponent(comp);
 };
 
+exports.setComponentProps = setComponentProps;
+
+var unmountComponent = function unmountComponent(dom) {
+  console.log('移除组件');
+  dom && dom.parentNode && dom.parentNode.removeNode(dom);
+};
+
+exports.unmountComponent = unmountComponent;
+
 var renderComponent = function renderComponent(comp) {
   var base;
-  var rendered = comp.render(); //返回jsx对象
+  var renderer = comp.render(); //返回jsx对象
+  // base = _render(rendered); //返回节点对象
 
-  base = _render(rendered); //返回节点对象
+  base = (0, _diff.diffNode)(comp.base, renderer);
 
-  console.log('base', base);
+  if (comp.base) {
+    comp.componentWillUpdate && comp.componentWillUpdate();
+    comp.componentDidUpdate && comp.componentDidUpdate();
+  } else if (comp.componentDidMount) {
+    comp.componentDidMount();
+  } // // 如果调用了setState,节点替换
+  // if (comp.base && comp.base.parentNode) {
+  //   comp.base.parentNode.replaceChild(base, comp.base);
+  // }
+
+
   comp.base = base;
 };
 
+exports.renderComponent = renderComponent;
+
 var _render = function _render(vNode) {
   // 判断节点类型
-  if (!vNode || typeof vNode === 'boolean') {
+  if (vNode === undefined || vNode === null || vNode === '' || typeof vNode === 'boolean') {
     return;
+  }
+
+  if (typeof vNode === 'number') {
+    vNode = String(vNode);
   }
 
   if (typeof vNode === 'string') {
@@ -224,16 +428,16 @@ var _render = function _render(vNode) {
   } //虚拟dom类型
 
 
-  var tag = vNode.tag,
-      attr = vNode.attr,
-      children = vNode.children; // 判断tag类型
+  var _vNode = vNode,
+      tag = _vNode.tag,
+      attr = _vNode.attr,
+      children = _vNode.children; // 判断tag类型
 
   if (tag) {
     if (typeof tag === 'function') {
       //如果tag是函数
       // 1.创建组件
-      var comp = creatComponent(tag, attr);
-      console.log('comp', comp); // 2.设置组件的属性
+      var comp = createComponent(tag, attr); // 2.设置组件的属性
 
       setComponentProps(comp, attr); // 3.组件渲染的节点对象返回
 
@@ -262,8 +466,9 @@ var _render = function _render(vNode) {
   }
 };
 
-var render = function render(node, container) {
-  return container.appendChild(_render(node));
+var render = function render(node, container, dom) {
+  // return container.appendChild && container.appendChild(_render(node));
+  return (0, _diff.diff)(dom, node, container);
 };
 
 var setAttributeFunc = function setAttributeFunc(dom, key, value) {
@@ -276,7 +481,7 @@ var setAttributeFunc = function setAttributeFunc(dom, key, value) {
 
   if (/on\w+/.test(key)) {
     key = key.toLowerCase();
-    dom[key] = value[key] || '';
+    dom[key] = value || '';
   } else if (key === 'style') {
     // 2是样式 style
     if (!value || typeof value === 'string') {
@@ -306,12 +511,84 @@ var setAttributeFunc = function setAttributeFunc(dom, key, value) {
   }
 };
 
+exports.setAttributeFunc = setAttributeFunc;
 var ReactDOM = {
   render: render
 };
 var _default = ReactDOM;
 exports.default = _default;
-},{"../React/component":"React/component.js"}],"index.js":[function(require,module,exports) {
+},{"../React/component":"React/component.js","./diff":"React-dom/diff.js"}],"React/component.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+
+var _ReactDom = require("../React-dom");
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
+
+function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
+
+var Component = /*#__PURE__*/function () {
+  function Component() {
+    var props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+
+    _classCallCheck(this, Component);
+
+    this.props = props;
+    this.state = {};
+  }
+
+  _createClass(Component, [{
+    key: "setState",
+    value: function setState(newValue) {
+      Object.assign(this.state, newValue);
+      (0, _ReactDom.renderComponent)(this);
+    }
+  }]);
+
+  return Component;
+}();
+
+var _default = Component;
+exports.default = _default;
+},{"../React-dom":"React-dom/index.js"}],"React/index.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+
+var _component = _interopRequireDefault(require("./component"));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+var createElement = function createElement(tag) {
+  var attr = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+
+  for (var _len = arguments.length, children = new Array(_len > 2 ? _len - 2 : 0), _key = 2; _key < _len; _key++) {
+    children[_key - 2] = arguments[_key];
+  }
+
+  return {
+    tag: tag,
+    attr: attr,
+    children: children,
+    key: attr && attr.key || null
+  };
+};
+
+var _default = {
+  createElement: createElement,
+  Component: _component.default
+};
+exports.default = _default;
+},{"./component":"React/component.js"}],"index.js":[function(require,module,exports) {
 "use strict";
 
 var _index = _interopRequireDefault(require("./React/index"));
@@ -320,6 +597,29 @@ var _index2 = _interopRequireDefault(require("./React-dom/index"));
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
+function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
+
+function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function"); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, writable: true, configurable: true } }); if (superClass) _setPrototypeOf(subClass, superClass); }
+
+function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
+
+function _createSuper(Derived) { var hasNativeReflectConstruct = _isNativeReflectConstruct(); return function _createSuperInternal() { var Super = _getPrototypeOf(Derived), result; if (hasNativeReflectConstruct) { var NewTarget = _getPrototypeOf(this).constructor; result = Reflect.construct(Super, arguments, NewTarget); } else { result = Super.apply(this, arguments); } return _possibleConstructorReturn(this, result); }; }
+
+function _possibleConstructorReturn(self, call) { if (call && (_typeof(call) === "object" || typeof call === "function")) { return call; } return _assertThisInitialized(self); }
+
+function _assertThisInitialized(self) { if (self === void 0) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return self; }
+
+function _isNativeReflectConstruct() { if (typeof Reflect === "undefined" || !Reflect.construct) return false; if (Reflect.construct.sham) return false; if (typeof Proxy === "function") return true; try { Date.prototype.toString.call(Reflect.construct(Date, [], function () {})); return true; } catch (e) { return false; } }
+
+function _getPrototypeOf(o) { _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf(o) { return o.__proto__ || Object.getPrototypeOf(o); }; return _getPrototypeOf(o); }
+
+// import Component from './React/component';
 //普通的jsx对象
 var ele = _index.default.createElement("div", {
   className: "active",
@@ -332,10 +632,85 @@ var Home = function Home() {
     className: "active",
     title: "demo"
   }, "hello, ", _index.default.createElement("span", null, "world"));
-}; // ReactDom.render(ele, document.querySelector('#root'));
+}; // 类组件
+// console.log('React',React)
 
 
-_index2.default.render(_index.default.createElement(Home, {
+var Demo = /*#__PURE__*/function (_React$Component) {
+  _inherits(Demo, _React$Component);
+
+  var _super = _createSuper(Demo);
+
+  function Demo(props) {
+    var _this;
+
+    _classCallCheck(this, Demo);
+
+    _this = _super.call(this, props);
+    _this.state = {
+      number: 0
+    }; // this.numberAdd = this.numberAdd.bind(this);
+
+    return _this;
+  }
+
+  _createClass(Demo, [{
+    key: "componentWillMount",
+    value: function componentWillMount() {
+      console.log('虚拟dom');
+    }
+  }, {
+    key: "componentWillReceiveProps",
+    value: function componentWillReceiveProps() {
+      console.log('接收属性');
+    }
+  }, {
+    key: "componentWillUpdate",
+    value: function componentWillUpdate() {
+      console.log('dom将要更新');
+    }
+  }, {
+    key: "componentDidUpdate",
+    value: function componentDidUpdate() {
+      console.log('dom已更新');
+    }
+  }, {
+    key: "componentDidMount",
+    value: function componentDidMount() {
+      console.log('dom挂载');
+    }
+  }, {
+    key: "numberAdd",
+    value: function numberAdd() {
+      this.setState({
+        number: this.state.number + 1
+      });
+    }
+  }, {
+    key: "render",
+    value: function render() {
+      var _this2 = this;
+
+      console.log('对对对111', this);
+      return _index.default.createElement("div", {
+        className: "active",
+        title: "demo"
+      }, "hello, ", _index.default.createElement("span", null, "world ", this.state.number), _index.default.createElement("button", {
+        onClick: function onClick() {
+          console.log(_this2);
+
+          _this2.numberAdd();
+        }
+      }, "\u70B9\u51FB+"));
+    }
+  }]);
+
+  return Demo;
+}(_index.default.Component); // ReactDom.render(ele, document.querySelector('#root'));
+// ReactDom.render(<Home title={'demo'} />, document.querySelector('#root'));
+
+
+_index2.default.render(_index.default.createElement(Demo, {
   title: 'demo'
 }), document.querySelector('#root'));
 },{"./React/index":"React/index.js","./React-dom/index":"React-dom/index.js"}],"node_modules/_parcel-bundler@1.12.4@parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
@@ -366,7 +741,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "58247" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "52905" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

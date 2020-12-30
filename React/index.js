@@ -1,12 +1,13 @@
-
-const createElement = (tag, attr, ...children) => {
+import Component from './component';
+const createElement = (tag, attr = {}, ...children) => {
   return {
     tag,
     attr,
     children,
+    key: (attr && attr.key) || null,
   };
 };
-const React = {
+export default {
   createElement,
+  Component,
 };
-export default React;
