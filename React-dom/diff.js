@@ -104,7 +104,7 @@ const diffAttributes = (dom, vNode) => {
   // 更新新的属性值
   for (let key in newAttrs) {
     if (oldAttrs[key] !== newAttrs[key]) {
-      console.log(dom, newAttrs[key], key);
+      // console.log(dom, newAttrs[key], key);
       // 只更值不相等的属性
       setAttributeFunc(dom, key, newAttrs[key]);
     }

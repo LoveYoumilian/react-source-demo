@@ -28,7 +28,7 @@ export const setComponentProps = (comp, props) => {
   renderComponent(comp);
 };
 export const unmountComponent = (dom) => {
-  console.log('移除组件');
+  // console.log('移除组件');
   dom && dom.parentNode && dom.parentNode.removeNode(dom);
 };
 export const renderComponent = (comp) => {

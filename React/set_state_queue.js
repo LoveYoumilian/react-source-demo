@@ -12,15 +12,15 @@ const flush = () => {
   //遍历state
   while ((item = setStateQueue.shift())) {
     const { stateChange, component } = item;
-    // 如果没有preState,则当前的state作为初始的preState
-    if (!component.preState) {
-      component.preState = Object.assign({}, component.state);
+    // 如果没有prevState,则当前的state作为初始的prevState
+    if (!component.prevState) {
+      component.prevState = Object.assign({}, component.state);
     }
     // 如果stateChange是一个方法,也就是setState的第一种形式
     if (typeof stateChange === 'function') {
       Object.assign(
         component.state,
-        stateChange(component.preState, component.props)
+        stateChange(component.prevState, component.props)
       );
     } else {
       // 如果stateChange是一个对象,则直接合并到setState中

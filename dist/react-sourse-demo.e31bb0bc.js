@@ -252,8 +252,8 @@ var diffAttributes = function diffAttributes(dom, vNode) {
 
   for (var _key in newAttrs) {
     if (oldAttrs[_key] !== newAttrs[_key]) {
-      console.log(dom, newAttrs[_key], _key); // 只更值不相等的属性
-
+      // console.log(dom, newAttrs[key], key);
+      // 只更值不相等的属性
       (0, _index.setAttributeFunc)(dom, _key, newAttrs[_key]);
     }
   }
@@ -383,7 +383,7 @@ var setComponentProps = function setComponentProps(comp, props) {
 exports.setComponentProps = setComponentProps;
 
 var unmountComponent = function unmountComponent(dom) {
-  console.log('移除组件');
+  // console.log('移除组件');
   dom && dom.parentNode && dom.parentNode.removeNode(dom);
 };
 
@@ -537,15 +537,15 @@ var flush = function flush() {
   while (item = setStateQueue.shift()) {
     var _item = item,
         stateChange = _item.stateChange,
-        component = _item.component; // 如果没有preState,则当前的state作为初始的preState
+        component = _item.component; // 如果没有prevState,则当前的state作为初始的prevState
 
-    if (!component.preState) {
-      component.preState = Object.assign({}, component.state);
+    if (!component.prevState) {
+      component.prevState = Object.assign({}, component.state);
     } // 如果stateChange是一个方法,也就是setState的第一种形式
 
 
     if (typeof stateChange === 'function') {
-      Object.assign(component.state, stateChange(component.preState, component.props));
+      Object.assign(component.state, stateChange(component.prevState, component.props));
     } else {
       // 如果stateChange是一个对象,则直接合并到setState中
       Object.assign(component.state, stateChange);
@@ -749,8 +749,13 @@ var Demo = /*#__PURE__*/function (_React$Component) {
   }, {
     key: "numberAdd",
     value: function numberAdd() {
-      this.setState({
-        number: this.state.number + 1
+      // this.setState({
+      //   number: this.state.number + 1,
+      // });
+      this.setState(function (prevState) {
+        return {
+          number: prevState.number + 1
+        };
       });
     }
   }, {
@@ -758,14 +763,13 @@ var Demo = /*#__PURE__*/function (_React$Component) {
     value: function render() {
       var _this2 = this;
 
-      console.log('对对对111', this);
+      // console.log('对对对111', this);
       return _index.default.createElement("div", {
         className: "active",
         title: "demo"
       }, "hello, ", _index.default.createElement("span", null, "world ", this.state.number), _index.default.createElement("button", {
         onClick: function onClick() {
-          console.log(_this2);
-
+          // console.log(this);
           _this2.numberAdd();
         }
       }, "\u70B9\u51FB+"));

@@ -40,18 +40,23 @@ class Demo extends React.Component {
     console.log('dom挂载');
   }
   numberAdd() {
-    this.setState({
-      number: this.state.number + 1,
+    // this.setState({
+    //   number: this.state.number + 1,
+    // });
+    this.setState((prevState) => {
+      return {
+        number: prevState.number + 1,
+      };
     });
   }
   render() {
-    console.log('对对对111', this);
+    // console.log('对对对111', this);
     return (
       <div className='active' title='demo'>
         hello, <span>world {this.state.number}</span>
         <button
           onClick={() => {
-            console.log(this);
+            // console.log(this);
             this.numberAdd();
           }}
         >
