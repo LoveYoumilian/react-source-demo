@@ -48,7 +48,7 @@ export const renderComponent = (comp) => {
   // }
   comp.base = base;
 };
-const _render = (vNode) => {
+/* const _render = (vNode) => {
   // 判断节点类型
   if (
     vNode === undefined ||
@@ -93,7 +93,7 @@ const _render = (vNode) => {
     }
     return dom;
   }
-};
+}; */
 const render = (node, container, dom) => {
   // return container.appendChild && container.appendChild(_render(node));
   return diff(dom, node, container);

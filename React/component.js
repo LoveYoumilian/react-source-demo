@@ -1,4 +1,5 @@
-import { renderComponent } from '../React-dom';
+// import { renderComponent } from '../React-dom';
+import { enqueueSetState } from './set_state_queue'
 class Component {
   constructor(props = {}) {
     this.props = props;
@@ -6,8 +7,9 @@ class Component {
   }
 
   setState(newValue) {
-    Object.assign(this.state, newValue);
-    renderComponent(this);
+    // Object.assign(this.state, newValue);
+    // renderComponent(this);
+    enqueueSetState(newValue,this)
   }
 }
 export default Component;

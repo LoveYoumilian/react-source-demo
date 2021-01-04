@@ -409,62 +409,55 @@ var renderComponent = function renderComponent(comp) {
 
   comp.base = base;
 };
-
-exports.renderComponent = renderComponent;
-
-var _render = function _render(vNode) {
+/* const _render = (vNode) => {
   // 判断节点类型
-  if (vNode === undefined || vNode === null || vNode === '' || typeof vNode === 'boolean') {
+  if (
+    vNode === undefined ||
+    vNode === null ||
+    vNode === '' ||
+    typeof vNode === 'boolean'
+  ) {
     return;
   }
-
   if (typeof vNode === 'number') {
     vNode = String(vNode);
   }
-
   if (typeof vNode === 'string') {
     // 字符串类型
     return document.createTextNode(vNode);
-  } //虚拟dom类型
-
-
-  var _vNode = vNode,
-      tag = _vNode.tag,
-      attr = _vNode.attr,
-      children = _vNode.children; // 判断tag类型
-
+  }
+  //虚拟dom类型
+  const { tag, attr, children } = vNode;
+  // 判断tag类型
   if (tag) {
     if (typeof tag === 'function') {
       //如果tag是函数
       // 1.创建组件
-      var comp = createComponent(tag, attr); // 2.设置组件的属性
-
-      setComponentProps(comp, attr); // 3.组件渲染的节点对象返回
-
+      const comp = createComponent(tag, attr);
+      // 2.设置组件的属性
+      setComponentProps(comp, attr);
+      // 3.组件渲染的节点对象返回
       return comp.base;
-    } //创建节点对象
-
-
-    var dom = document.createElement(tag);
-
+    }
+    //创建节点对象
+    const dom = document.createElement(tag);
     if (attr) {
       // 对节点的属性进行循环
-      Object.keys(attr).forEach(function (key) {
-        var value = attr[key];
+      Object.keys(attr).forEach((key) => {
+        const value = attr[key];
         setAttributeFunc(dom, key, value); //设置属性
       });
-    } //渲染子节点
-
-
-    if (children) {
-      children.forEach(function (child) {
-        return render(child, dom);
-      }); // 递归渲染
     }
-
+    //渲染子节点
+    if (children) {
+      children.forEach((child) => render(child, dom)); // 递归渲染
+    }
     return dom;
   }
-};
+}; */
+
+
+exports.renderComponent = renderComponent;
 
 var render = function render(node, container, dom) {
   // return container.appendChild && container.appendChild(_render(node));
@@ -517,7 +510,80 @@ var ReactDOM = {
 };
 var _default = ReactDOM;
 exports.default = _default;
-},{"../React/component":"React/component.js","./diff":"React-dom/diff.js"}],"React/component.js":[function(require,module,exports) {
+},{"../React/component":"React/component.js","./diff":"React-dom/diff.js"}],"React/set_state_queue.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.enqueueSetState = void 0;
+
+var _index = require("../React-dom/index");
+
+var setStateQueue = []; //修改的队列
+
+var renderQueue = []; //渲染的组件
+//创建队列
+//队列 :先进先出
+
+var defer = function defer(fn) {
+  return Promise.resolve().then(fn);
+}; // 定义一个flush方法,它的作用就是清空队列
+
+
+var flush = function flush() {
+  var item, comPonent; //遍历state
+
+  while (item = setStateQueue.shift()) {
+    var _item = item,
+        stateChange = _item.stateChange,
+        component = _item.component; // 如果没有preState,则当前的state作为初始的preState
+
+    if (!component.preState) {
+      component.preState = Object.assign({}, component.state);
+    } // 如果stateChange是一个方法,也就是setState的第一种形式
+
+
+    if (typeof stateChange === 'function') {
+      Object.assign(component.state, stateChange(component.preState, component.props));
+    } else {
+      // 如果stateChange是一个对象,则直接合并到setState中
+      Object.assign(component.state, stateChange);
+    }
+
+    component.prevState = component.state;
+  } // 遍历组件
+
+
+  while (comPonent = renderQueue.shift()) {
+    (0, _index.renderComponent)(comPonent);
+  }
+};
+
+var enqueueSetState = function enqueueSetState(stateChange, component) {
+  console.log('component', component); // 如果setStateQueue的长度是0,也就是在上次flush执行之后第一次往队列里添加
+
+  if (setStateQueue.length === 0) {
+    defer(flush);
+  } //入队 让所有设置的状态 都放入到队列中
+
+
+  setStateQueue.push({
+    stateChange: stateChange,
+    component: component
+  }); // 如果renderQueue里没有当前组件,则添加到队列中
+
+  var r = renderQueue.some(function (item) {
+    return item === component;
+  });
+
+  if (!r) {
+    renderQueue.push(component);
+  }
+};
+
+exports.enqueueSetState = enqueueSetState;
+},{"../React-dom/index":"React-dom/index.js"}],"React/component.js":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -525,7 +591,7 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.default = void 0;
 
-var _ReactDom = require("../React-dom");
+var _set_state_queue = require("./set_state_queue");
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
@@ -546,8 +612,9 @@ var Component = /*#__PURE__*/function () {
   _createClass(Component, [{
     key: "setState",
     value: function setState(newValue) {
-      Object.assign(this.state, newValue);
-      (0, _ReactDom.renderComponent)(this);
+      // Object.assign(this.state, newValue);
+      // renderComponent(this);
+      (0, _set_state_queue.enqueueSetState)(newValue, this);
     }
   }]);
 
@@ -556,7 +623,7 @@ var Component = /*#__PURE__*/function () {
 
 var _default = Component;
 exports.default = _default;
-},{"../React-dom":"React-dom/index.js"}],"React/index.js":[function(require,module,exports) {
+},{"./set_state_queue":"React/set_state_queue.js"}],"React/index.js":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -741,7 +808,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "52905" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "60861" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};
